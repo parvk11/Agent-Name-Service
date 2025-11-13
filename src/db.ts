@@ -77,7 +77,6 @@ export class AgentRegistry {
         if (!fs.existsSync(dbDir)) {
           fs.mkdirSync(dbDir, { recursive: true });
         }
-        
         // Open or create database file
         this.db = new sqlite3.Database(this.options.dbPath);
         console.log(`Using persistent storage at: ${this.options.dbPath}`);
@@ -213,6 +212,40 @@ export class AgentRegistry {
     } catch (error) {
       console.error('Failed to get agent card:', error);
       throw new Error(`Failed to get agent card: ${this.sanitizeErrorMessage(error)}`);
+    }
+  }
+
+
+  public async getAllAgentsMetadata(): Promise<{name: string, metadata: object}[]> {
+    this.validateInitialized();
+
+    try {
+      const sql = 'SELECT name, card FROM agents';
+      return new Promise<{name: string, metadata: object}[]>((resolve, reject) => {
+        this.db.all(sql, [], (err: Error, rows: {name: string, card: string}[]) => {
+          if (err) {
+            reject(new Error(`Database query failed: ${err.message}`));
+            return;
+          }
+
+          const agents = rows.map(row => {
+            let cardData: string;
+            if (this.options.encryptData && this.encryptionKey) {
+              cardData = this.decryptData(row.card);
+            } else {
+              cardData = row.card;
+            } 
+            
+            const metadata = extractAgentJSON(cardData);
+            return { name: row.name, metadata };
+          });
+          resolve(agents);
+        });
+      });
+    } catch (error) {
+      console.error('Failed to get all agents metadata:', error);
+      throw new Error(`Failed to get all agents metadata: ${this.sanitizeErrorMessage(error)}`);
+
     }
   }
 
@@ -467,4 +500,11 @@ export class AgentRegistry {
       return 'Unknown error';
     }
   }
+}
+
+function extractAgentJSON(agentCard: string): any {
+  // Match the JSON part after the first colon and space
+  const jsonMatch = agentCard.match(/:\s*(\{.*\})$/s);
+  if (!jsonMatch) throw new Error("Invalid agent card format");
+  return JSON.parse(jsonMatch[1]);
 }

@@ -5,6 +5,9 @@ import { issueCertificate, validateCertificate } from './certificate';
 import { formatAgentCard, formatMCPManifest } from './protocols';
 import { analyzeAgentSecurity, ThreatReport, SecurityAction } from './mastra-simple';
 import { ANSStatus, CertificateStatus, SecurityEventType, SecuritySeverity } from './types';
+import {BM25Retriever} from "@langchain/community/retrievers/bm25";
+import { Document } from '@langchain/core/documents';
+
 
 /**
  * Configuration for the Agent Naming Service
@@ -99,6 +102,11 @@ interface SecurityEvent {
    * Timestamp of the event
    */
   timestamp: Date;
+}
+
+interface AgentData{
+  name: string;
+  metadata: object;
 }
 
 export class AgentNamingService {
@@ -289,6 +297,18 @@ export class AgentNamingService {
       // Log error but return null instead of throwing
       console.error('Error resolving agent:', this.sanitizeErrorMessage(error));
       return null;
+    }
+  }
+
+  public async discoverAgents_BM25(query: string): Promise<string[]> {
+    try{
+      const all_agents: AgentData[] = await this.registry.getAllAgentsMetadata();
+      const matched_agents: any = bm25_search(query, all_agents);
+      return matched_agents
+    }
+    catch(error){
+      console.error('Error during BM25 agent discovery:', this.sanitizeErrorMessage(error));
+      return [];
     }
   }
 
@@ -574,3 +594,19 @@ function mapThreatSeverityToSecuritySeverity(
       return SecuritySeverity.MEDIUM;
   }
 }
+
+async function bm25_search(query: string, agents: AgentData[]): Promise<any[]> {
+  // Create documents from agent metadata
+  const documents = agents.map(agent => new Document({
+    pageContent: JSON.stringify(agent.metadata),
+    metadata: { name: agent.name }
+  }));
+
+  // Initialize BM25 retriever
+  const retriever = BM25Retriever.fromDocuments(documents, {k: 5});
+
+  const results = await retriever.invoke(query);
+
+  return results.map(doc => doc.metadata.name);
+
+  }
