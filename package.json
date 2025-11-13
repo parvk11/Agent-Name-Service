@@ -17,8 +17,11 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "@langchain/core": "^1.0.4",
+    "@langchain/openai": "^1.1.0",
     "node-fetch": "^2.7.0",
     "sqlite3": "^5.1.7",
+    "supabase": "^2.58.5",
     "uuid": "^9.0.0"
   }
 }

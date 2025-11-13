@@ -7,6 +7,10 @@ import { analyzeAgentSecurity, ThreatReport, SecurityAction } from './mastra-sim
 import { ANSStatus, CertificateStatus, SecurityEventType, SecuritySeverity } from './types';
 import {BM25Retriever} from "@langchain/community/retrievers/bm25";
 import { Document } from '@langchain/core/documents';
+import { OpenAIEmbeddings} from "@langchain/openai";
+import { MemoryVectorStore } from '@langchain/classic/vectorstores/memory';
+import { EnsembleRetriever } from '@langchain/classic/retrievers/ensemble';
+
 
 
 /**
@@ -312,6 +316,32 @@ export class AgentNamingService {
     }
   }
 
+  public async discoverAgents_semantic(query: string): Promise<string[]> {
+    try{
+      const embeddings = new OpenAIEmbeddings({ openAIApiKey: process.env.OPENAI_API_KEY });
+      const all_agents: AgentData[] = await this.registry.getAllAgentsMetadata();
+      const matched_agents: any = semantic_search(query, all_agents, embeddings);
+      return matched_agents;
+    }
+    catch(error){
+      console.error('Error during semantic agent discovery:', this.sanitizeErrorMessage(error));
+      return [];
+    }
+  }
+
+  public async hybrid_discoverAgents(query: string): Promise<string[]> {
+    try{
+      const all_agents: AgentData[] = await this.registry.getAllAgentsMetadata();
+      const embeddings = new OpenAIEmbeddings({ openAIApiKey: process.env.OPENAI_API_KEY });
+      const hybrid_results: any = hybrid_search(query, all_agents, embeddings);
+      return hybrid_results;
+    }
+    catch(error){
+      console.error('Error during hybrid agent discovery:', this.sanitizeErrorMessage(error));
+      return [];
+    }
+  }
+
   /**
    * Generate an MCP manifest for the agent
    * @param name The unique name of the agent
@@ -610,3 +640,43 @@ async function bm25_search(query: string, agents: AgentData[]): Promise<any[]> {
   return results.map(doc => doc.metadata.name);
 
   }
+
+async function semantic_search(query: string, agents: AgentData[], embeddings: OpenAIEmbeddings): Promise<any[]> {
+    // Create documents from agent metadata
+    const store = await MemoryVectorStore.fromTexts(
+      agents.map(agent => JSON.stringify(agent.metadata)),
+      agents.map(agent => agent.name),
+      embeddings
+    );
+
+    const results = await store.similaritySearch(query, 5);
+
+    return results.map(doc => doc.metadata);
+  }
+
+async function hybrid_search(query: string, agents: AgentData[], embeddings: OpenAIEmbeddings): Promise<any[]> {
+    // Create documents from agent metadata
+    const documents = agents.map(agent => new Document({
+      pageContent: JSON.stringify(agent.metadata),
+      metadata: { name: agent.name }
+    }));
+
+    // Initialize BM25 retriever
+    const bm25Retriever = BM25Retriever.fromDocuments(documents, {k: 5});
+
+    // Initialize Semantic retriever
+    const store = await MemoryVectorStore.fromTexts(
+      agents.map(agent => JSON.stringify(agent.metadata)),
+      agents.map(agent => agent.name),
+      embeddings
+    );
+    const semanticRetriever = store.asRetriever(5);
+
+    // Create Ensemble retriever
+    const ensembleRetriever = new EnsembleRetriever({
+      retrievers: [bm25Retriever, semanticRetriever],
+      weights: [0.4, 0.6] // Equal weights for both retrievers
+    });
+    const results = await ensembleRetriever.invoke(query);
+    return results.map(doc => doc.metadata.name);
+}

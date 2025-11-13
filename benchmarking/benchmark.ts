@@ -63,19 +63,30 @@ function extractAgentName(agentCardString: string): string {
 // }
 
 /**
- * Evaluate BM25-based discovery
+ * Evaluate discovery
  */
-async function evaluate_discovery_BM25() {
+async function evaluate_discovery(method: "BM25" | "semantic" | "hybrid") {
   let precisionCount = 0;
   let recallCount = 0;
   let totalLatency = 0;
 
   for (const { query, expectedAnswer } of dataset) {
     const start = performance.now();
-
+    let results: string[] = [];
     // discoverAgents_BM25 should return a ranked list of agent names or cards
-    const results = await ans.discoverAgents_BM25(query);
-    // console.log(`Query: "${query}" => Results:`, results);
+    
+    if (method === "BM25") 
+    {
+      results = await ans.discoverAgents_BM25(query);
+    } 
+    else if (method === "semantic") 
+    {
+      results = await ans.discoverAgents_semantic(query);
+    }
+    else if (method === "hybrid"){
+      results = await ans.hybrid_discoverAgents(query);
+    }
+    
 
     const latency = (performance.now() - start) / 1000; // seconds
     totalLatency += latency;
@@ -104,7 +115,7 @@ async function evaluate_discovery_BM25() {
   const recallAtK = (recallCount / total) * 100;
   const avgLatency = totalLatency / total;
 
-  console.log("\n===== 📊 Benchmark Results =====");
+  console.log("\n===== 📊 Benchmark Results for " + method + " =====");
   console.log(`Precision@1: ${precisionAt1.toFixed(2)}%`);
   console.log(`Recall@${K}: ${recallAtK.toFixed(2)}%`);
   console.log(`Average Latency: ${avgLatency.toFixed(3)} seconds`);
@@ -115,11 +126,20 @@ async function evaluate_discovery_BM25() {
  * Main benchmark runner
  */
 async function runBenchmark() {
+  console.log("🚀 Starting benchmark...");
   await registerExampleAgents(ans);
-  await evaluate_discovery_BM25();
+  
+  console.log("BM25 Discovery Evaluation:");
+  await evaluate_discovery("BM25");
+  console.log("Semantic Discovery Evaluation:");
+  await evaluate_discovery("semantic");
+  console.log("Hybrid Discovery Evaluation:");
+  await evaluate_discovery("hybrid");
+  process.exit(0);
 }
 
 // Run the benchmark
 runBenchmark().catch((err) => {
-  console.error("Error during BM25 benchmarking:", err);
+  console.error("Error during benchmarking:", err);
 });
+
