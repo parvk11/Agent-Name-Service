@@ -10,6 +10,9 @@ import { Document } from '@langchain/core/documents';
 import { OpenAIEmbeddings} from "@langchain/openai";
 import { MemoryVectorStore } from '@langchain/classic/vectorstores/memory';
 import { EnsembleRetriever } from '@langchain/classic/retrievers/ensemble';
+import { Orchestrator, AgentInfo } from './orchestrator';
+import * as fs from 'fs';
+import * as path from 'path';
 
 
 
@@ -110,7 +113,23 @@ interface SecurityEvent {
 
 interface AgentData{
   name: string;
-  metadata: object;
+  metadata: { endpoint?: string; [key: string]: any };
+  embedding?: number[];
+}
+
+export async function logToFile(message: string, filename: string = 'agent-discovery.log'): Promise<void> {
+  const logDir = path.join(process.cwd(), 'logs');
+  const logPath = path.join(logDir, filename);
+  
+  // Create logs directory if it doesn't exist
+  if (!fs.existsSync(logDir)) {
+    fs.mkdirSync(logDir, { recursive: true });
+  }
+  
+  const timestamp = new Date().toISOString();
+  const logMessage = `[${timestamp}] ${message}\n`;
+  
+  fs.appendFileSync(logPath, logMessage);
 }
 
 export class AgentNamingService {
@@ -118,6 +137,7 @@ export class AgentNamingService {
   private config: ANSConfig;
   private registrationLog: Map<string, { count: number, lastReset: Date }>;
   private securityEvents: SecurityEvent[];
+  private embeddings: OpenAIEmbeddings;
   
   /**
    * Creates a new instance of the Agent Naming Service
@@ -128,6 +148,7 @@ export class AgentNamingService {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.registrationLog = new Map();
     this.securityEvents = [];
+    this.embeddings = new OpenAIEmbeddings({ openAIApiKey: process.env.OPENAI_API_KEY });
     
     // Start the rate limit reset interval if rate limiting is enabled
     if (this.config.enableRateLimiting) {
@@ -342,6 +363,66 @@ export class AgentNamingService {
     }
   }
 
+  public async discoverAgentsOrchestrator(query: string, k = 5): Promise<string[]> {
+    const top_k_agents = await this.hybrid_discoverAgents(query);
+    const topK = top_k_agents.slice(0, k);
+
+  
+
+    const all_agents: AgentData[] = await this.registry.getAllAgentsMetadata();
+
+
+    // Map AgentData to the AgentInfo shape expected by Orchestrator
+    // only include agents in topK
+    const topKSet = new Set(topK);
+    const all_agent_infos: AgentInfo[] = all_agents
+      .filter(agent => topKSet.has(agent.name))
+      .map(agent => {
+      // support either metadata.endpoints or metadata.metadata.endpoints (robust handling)
+      const endpoints =
+        agent.metadata?.metadata?.endpoints ??
+        agent.metadata?.endpoints;
+
+      let url = '';
+
+      if (Array.isArray(endpoints) && endpoints.length > 0) {
+        const ep = endpoints[0];
+        const protocol = ep.protocol ?? 'http';
+        const address = ep.address ?? ep.host ?? '';
+        const port = ep.port ? `:${ep.port}` : '';
+        if (address) {
+        url = `${protocol}://${address}${port}`;
+        }
+      } else if (typeof agent.metadata?.endpoint === 'string') {
+        // fallback if a simple endpoint string was stored
+        url = agent.metadata.endpoint;
+      }
+
+      return {
+        title: agent.name,
+        url
+      };
+      });
+
+  
+
+    // Then replace the placeholder with:
+    await logToFile(`Stage-1 Top-K Agents for Orchestrator to Interview: ${JSON.stringify(topK)}`);
+    console.log(`Stage-1 Top-K Agents for Orchestrator to Interview: ${JSON.stringify(topK)}`);
+
+    const orchestrator = new Orchestrator(all_agent_infos);
+    const best_agent_names: string[]= await orchestrator.pickBestAgent(query, 'http://localhost:41247/.well-known/agent-card.json', topK);
+    if (best_agent_names.length === 0) {
+      console.log('Error: did not select any agents.');
+      await logToFile('Error: did not select any agents.');
+      return [];
+    }
+    await logToFile(`Stage-2 Orchestrator Selected Agents: ${JSON.stringify(best_agent_names)}`);
+    return best_agent_names;
+  }
+
+   
+
   /**
    * Generate an MCP manifest for the agent
    * @param name The unique name of the agent
@@ -482,6 +563,18 @@ export class AgentNamingService {
     }
     
     return { valid: true };
+  }
+
+  public async precomputeEmbeddings(agents: AgentData[]): Promise<void> {
+    const agentsToCompute = agents.filter(agent => !agent.embedding);
+    if (agentsToCompute.length === 0) return;
+
+    const texts = agentsToCompute.map(agent => JSON.stringify(agent.metadata));
+    const vectors = await this.embeddings.embedDocuments(texts);
+
+    agentsToCompute.forEach((agent, idx) => {
+      agent.embedding = vectors[idx];
+    });
   }
   
   /**
@@ -675,8 +768,9 @@ async function hybrid_search(query: string, agents: AgentData[], embeddings: Ope
     // Create Ensemble retriever
     const ensembleRetriever = new EnsembleRetriever({
       retrievers: [bm25Retriever, semanticRetriever],
-      weights: [0.4, 0.6] // Equal weights for both retrievers
+      weights: [0.5, 0.5] // Equal weights for both retrievers
     });
     const results = await ensembleRetriever.invoke(query);
-    return results.map(doc => doc.metadata.name);
+ 
+    return results.map(doc => doc.metadata.name || doc.metadata);
 }

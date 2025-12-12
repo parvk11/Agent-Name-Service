@@ -1,0 +1,24 @@
+
+Benchmarking complete. Results:
+BM25 Results: {
+  precisionAt1: 54.166666666666664,
+  recallAtK: 66.66666666666666,
+  avgLatency: 0.0008480875000000198
+}
+Semantic Results: {
+  precisionAt1: 50,
+  recallAtK: 83.33333333333334,
+  avgLatency: 0.7870259708333335
+}
+Hybrid Results: {
+  precisionAt1: 58.333333333333336,
+  recallAtK: 79.16666666666666,
+  avgLatency: 0.6088067458333336
+}
+
+Agentic Results: {
+  precisionAt1: 58.333333333333336,
+  recallAtK: 75,
+  avgLatency: 88.59234032500001
+}
+

@@ -1,0 +1,33 @@
+[
+  { "id": "Q1", "text": "My backend service crashes only when handling multiple requests at once — not sure if this is a logic error or a performance issue.", "correctAgentName": "code-debugging-assistant" },
+  { "id": "Q2", "text": "This Java method returns different outputs for the same input depending on runtime conditions. What could be causing this?", "correctAgentName": "code-debugging-assistant" },
+  { "id": "Q3", "text": "I'm getting intermittent null pointer errors in production that never appear locally — how should I debug this?", "correctAgentName": "code-debugging-assistant" },
+
+  { "id": "Q4", "text": "This Python script takes 20 seconds to run even on small datasets — how can I profile and speed it up?", "correctAgentName": "performance-diagnostics-engineer" },
+  { "id": "Q5", "text": "CPU usage jumps to 100% whenever this endpoint is called, even with light load. What should I investigate?", "correctAgentName": "performance-diagnostics-engineer" },
+  { "id": "Q6", "text": "My Node.js service becomes extremely slow over time — could this be a memory leak or some other performance regression?", "correctAgentName": "performance-diagnostics-engineer" },
+
+  { "id": "Q7", "text": "How should I structure an endpoint so multiple internal services can reuse it cleanly?", "correctAgentName": "api-design-advisor" },
+  { "id": "Q8", "text": "What is the best way to design pagination and filtering for a user listing API?", "correctAgentName": "api-design-advisor" },
+  { "id": "Q9", "text": "How should I design an authentication flow for a REST API that will scale to multiple clients?", "correctAgentName": "api-design-advisor" },
+
+  { "id": "Q10", "text": "My backend is becoming difficult to scale — should I break out a new microservice or keep everything in the monolith?", "correctAgentName": "software-architecture-consultant" },
+  { "id": "Q11", "text": "Where should business logic live when separating controllers, service layers, and data layers?", "correctAgentName": "software-architecture-consultant" },
+  { "id": "Q12", "text": "We are adding several new domains — what's the right service boundary to avoid future coupling issues?", "correctAgentName": "software-architecture-consultant" },
+
+  { "id": "Q13", "text": "My deployment keeps failing in GitHub Actions but works locally — what should I check first?", "correctAgentName": "devops-ci-cd-orchestrator" },
+  { "id": "Q14", "text": "How do I structure a CI pipeline so tests, linting, and deployment all run in the right order?", "correctAgentName": "devops-ci-cd-orchestrator" },
+  { "id": "Q15", "text": "Kubernetes keeps restarting my pod due to failing health checks — how can I debug this?", "correctAgentName": "devops-ci-cd-orchestrator" },
+
+  { "id": "Q16", "text": "What's the safest way to manage secrets and environment variables across staging and production?", "correctAgentName": "secure-code-auditor" },
+  { "id": "Q17", "text": "Is my login endpoint vulnerable to SQL injection if I'm using string concatenation?", "correctAgentName": "secure-code-auditor" },
+  { "id": "Q18", "text": "How should I securely store JWTs in a browser-based SPA?", "correctAgentName": "secure-code-auditor" },
+
+  { "id": "Q19", "text": "My React form sometimes refuses to submit even when validation passes — how do I debug the component?", "correctAgentName": "frontend-ux-refiner" },
+  { "id": "Q20", "text": "Typing into this React controlled input feels laggy — how can I optimize re-renders?", "correctAgentName": "frontend-ux-refiner" },
+  { "id": "Q21", "text": "How do I refactor this large React component so it is easier to maintain and doesn't re-render unnecessarily?", "correctAgentName": "frontend-ux-refiner" },
+
+  { "id": "Q22", "text": "I need to create E2E tests for a multi-step signup flow — what scenarios should I include?", "correctAgentName": "test-automation-engineer" },
+  { "id": "Q23", "text": "My React component works locally but fails Cypress tests in CI — how should I debug the discrepancy?", "correctAgentName": "test-automation-engineer" },
+  { "id": "Q24", "text": "How should I structure Jest tests for a component with async state transitions and multiple UI states?", "correctAgentName": "test-automation-engineer" }
+]

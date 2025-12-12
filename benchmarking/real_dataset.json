@@ -1,0 +1,66 @@
+[
+  {
+    "query": "I'm getting a NullPointerException in a Java Spring controller when calling a service method. How do I track down the root cause?",
+    "expectedAnswer": "code-debugging-assistant"
+  },
+  {
+    "query": "My C++ program randomly segfaults only on large inputs. Help me debug the issue.",
+    "expectedAnswer": "code-debugging-assistant"
+  },
+  {
+    "query": "Design a REST API for a hotel booking system with endpoints for searching rooms, creating reservations, and canceling bookings.",
+    "expectedAnswer": "api-design-advisor"
+  },
+  {
+    "query": "What's a good pagination and filtering strategy for a public REST API listing users?",
+    "expectedAnswer": "api-design-advisor"
+  },
+  {
+    "query": "This PostgreSQL query joining orders and customers is very slow; how can I add indexes and rewrite it to be faster?",
+    "expectedAnswer": "backend-database-optimizer"
+  },
+  {
+    "query": "How should I design the database schema for an e-commerce cart and order system while avoiding redundancy?",
+    "expectedAnswer": "backend-database-optimizer"
+  },
+  {
+    "query": "Refactor this large React component into smaller components and avoid unnecessary re-renders.",
+    "expectedAnswer": "frontend-ux-refiner"
+  },
+  {
+    "query": "How can I make this modal dialog accessible with proper ARIA roles and keyboard navigation?",
+    "expectedAnswer": "frontend-ux-refiner"
+  },
+  {
+    "query": "My GitHub Actions pipeline for a Node.js app keeps failing on the test step. Help me debug and fix the CI configuration.",
+    "expectedAnswer": "devops-ci-cd-orchestrator"
+  },
+  {
+    "query": "Design a safe deployment strategy with blue-green or canary deployments for a high-traffic web API.",
+    "expectedAnswer": "devops-ci-cd-orchestrator"
+  },
+  {
+    "query": "Is this login endpoint vulnerable to SQL injection, and how can I fix it using parameterized queries?",
+    "expectedAnswer": "secure-code-auditor"
+  },
+  {
+    "query": "Review this React component for potential XSS vulnerabilities and suggest safer patterns.",
+    "expectedAnswer": "secure-code-auditor"
+  },
+  {
+    "query": "Write Jest unit tests for this React hook, including edge cases and error states.",
+    "expectedAnswer": "test-automation-engineer"
+  },
+  {
+    "query": "How should I structure end-to-end Cypress tests for a login and signup flow?",
+    "expectedAnswer": "test-automation-engineer"
+  },
+  {
+    "query": "Design a high-level architecture for a ride-sharing application, including services and data flows.",
+    "expectedAnswer": "software-architecture-consultant"
+  },
+  {
+    "query": "Compare a monolith vs microservices for a growing SaaS product and recommend when to split the monolith.",
+    "expectedAnswer": "software-architecture-consultant"
+  }
+]

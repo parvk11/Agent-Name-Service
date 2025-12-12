@@ -3,12 +3,16 @@ import fs from "fs";
 import path from "path";
 import { performance } from "perf_hooks";
 import { registerExampleAgents } from "./registerAgents";
+import { registerRealAgents } from "./register_real_agents";
+import { logToFile } from "../src/ans";
+import { log } from "console";
 
 const ans = new AgentNamingService();
 
 interface BenchmarkEntry {
-  query: string;
-  expectedAnswer: string;
+  id: string;
+  text: string;
+  correctAgentName: string;
 }
 
 const dataset: BenchmarkEntry[] = JSON.parse(
@@ -65,16 +69,20 @@ function extractAgentName(agentCardString: string): string {
 /**
  * Evaluate discovery
  */
-async function evaluate_discovery(method: "BM25" | "semantic" | "hybrid") {
+async function evaluate_discovery(method: "BM25" | "semantic" | "hybrid" | "agentic") {
   let precisionCount = 0;
   let recallCount = 0;
   let totalLatency = 0;
+  let count = 0;
 
-  for (const { query, expectedAnswer } of dataset) {
+  for (const { id, text, correctAgentName } of dataset) {
+    const query = text;
+
     const start = performance.now();
     let results: string[] = [];
     // discoverAgents_BM25 should return a ranked list of agent names or cards
-    
+    console.log(`\n🔍 [${id}] Querying for: "${query}" using ${method} method`);
+    await logToFile(`\n🔍 [${id}] Querying for: "${query}" using ${method} method`);
     if (method === "BM25") 
     {
       results = await ans.discoverAgents_BM25(query);
@@ -86,7 +94,14 @@ async function evaluate_discovery(method: "BM25" | "semantic" | "hybrid") {
     else if (method === "hybrid"){
       results = await ans.hybrid_discoverAgents(query);
     }
-    
+    else if (method === "agentic"){
+      results = await ans.discoverAgentsOrchestrator(query, 5);
+    }
+
+    if (results.length > 0) {
+      count++;
+    }
+
 
     const latency = (performance.now() - start) / 1000; // seconds
     totalLatency += latency;
@@ -98,19 +113,24 @@ async function evaluate_discovery(method: "BM25" | "semantic" | "hybrid") {
 
 
     // Precision@1: correct top result
-    if (results[0] === expectedAnswer) {
+    if (results[0] === correctAgentName) {
       precisionCount++;
     } else {
-      console.log(`Mismatch: query="${query}", expected="${expectedAnswer}", got="${results[0]}"`);
+      console.log(`Mismatch: query="${query}", expected="${correctAgentName}", got="${results[0]}"`);
+      await logToFile(`Mismatch: query="${query}", expected="${correctAgentName}", got="${results[0]}"`);
     }
 
     // Recall@K: correct appears in top K
-    if (results.slice(0, K).includes(expectedAnswer)) {
+    if (results.slice(0, K).includes(correctAgentName)) {
       recallCount++;
+    }
+    else{
+      console.log(`Recall@${K} Miss: query="${query}", expected="${correctAgentName}", got top-${K}="${results.slice(0, K).join(", ")}"`);
+      await logToFile(`Recall@${K} Miss: query="${query}", expected="${correctAgentName}", got top-${K}="${results.slice(0, K).join(", ")}"`);
     }
   }
 
-  const total = dataset.length;
+  const total = count;
   const precisionAt1 = (precisionCount / total) * 100;
   const recallAtK = (recallCount / total) * 100;
   const avgLatency = totalLatency / total;
@@ -120,21 +140,70 @@ async function evaluate_discovery(method: "BM25" | "semantic" | "hybrid") {
   console.log(`Recall@${K}: ${recallAtK.toFixed(2)}%`);
   console.log(`Average Latency: ${avgLatency.toFixed(3)} seconds`);
   console.log("=================================\n");
+
+  await logToFile(`\n===== 📊 Benchmark Results for ${method} =====`) ;
+  await logToFile(`Precision@1: ${precisionAt1.toFixed(2)}%`);
+  await logToFile(`Recall@${K}: ${recallAtK.toFixed(2)}%`);
+  await logToFile(`Average Latency: ${avgLatency.toFixed(3)} seconds`);
+  await logToFile(`=================================\n`);
+
+  return { precisionAt1, recallAtK, avgLatency  };
 }
 
 /**
  * Main benchmark runner
  */
-async function runBenchmark() {
+async function runBenchmark(num_trials: number = 1) {
+
   console.log("🚀 Starting benchmark...");
-  await registerExampleAgents(ans);
+  // await registerExampleAgents(ans);
+  await registerRealAgents(ans);
+
+  let bm_25_results_all_trials = [];
+  let semantic_results_all_trials = [];
+  let hybrid_results_all_trials = [];
+  let agentic_results_all_trials = [];
+
+
+  for (let i = 0; i < num_trials; i++) {
+    console.log(`\n--- Trial ${i + 1} of ${num_trials} ---`);
+    const bm_25_results = await evaluate_discovery("BM25");
+    bm_25_results_all_trials.push(bm_25_results);
+    const semantic_results = await evaluate_discovery("semantic");
+    semantic_results_all_trials.push(semantic_results);
+    const hybrid_results = await evaluate_discovery("hybrid");
+    hybrid_results_all_trials.push(hybrid_results);
+    const agentic_results = await evaluate_discovery("agentic");
+    agentic_results_all_trials.push(agentic_results);
+  }
+  console.log("\n===== 📊 Aggregate Benchmark Results over " + num_trials + " trials =====")
+
+  function aggregateResults(resultsArray: any[]) {
+    const aggregate = { precisionAt1: 0, recallAtK: 0, avgLatency: 0 };
+    for (const result of resultsArray) {
+      aggregate.precisionAt1 += result.precisionAt1;
+      aggregate.recallAtK += result.recallAtK;
+      aggregate.avgLatency += result.avgLatency;
+    }
+    aggregate.precisionAt1 /= resultsArray.length;
+    aggregate.recallAtK /= resultsArray.length;
+    aggregate.avgLatency /= resultsArray.length;
+    return aggregate;
+  }
+  const bm25_aggregate = aggregateResults(bm_25_results_all_trials);
+  console.log("BM25 Aggregate Results:", bm25_aggregate); 
+  await logToFile(`BM25 Aggregate Results: ${JSON.stringify(bm25_aggregate)}`);
+  const semantic_aggregate = aggregateResults(semantic_results_all_trials);
+  console.log("Semantic Aggregate Results:", semantic_aggregate);
+  await logToFile(`Semantic Aggregate Results: ${JSON.stringify(semantic_aggregate)}`);
+  const hybrid_aggregate = aggregateResults(hybrid_results_all_trials);
+  console.log("Hybrid Aggregate Results:", hybrid_aggregate);
+  await logToFile(`Hybrid Aggregate Results: ${JSON.stringify(hybrid_aggregate)}`);
+  const agentic_aggregate = aggregateResults(agentic_results_all_trials);
+  console.log("Agentic Aggregate Results:", agentic_aggregate);
+  await logToFile(`Agentic Aggregate Results: ${JSON.stringify(agentic_aggregate)}`);
+
   
-  console.log("BM25 Discovery Evaluation:");
-  await evaluate_discovery("BM25");
-  console.log("Semantic Discovery Evaluation:");
-  await evaluate_discovery("semantic");
-  console.log("Hybrid Discovery Evaluation:");
-  await evaluate_discovery("hybrid");
   process.exit(0);
 }
 
@@ -142,4 +211,20 @@ async function runBenchmark() {
 runBenchmark().catch((err) => {
   console.error("Error during benchmarking:", err);
 });
+
+//testing benchmark
+
+// async function test() {
+//   console.log("🚀 Starting benchmark with real agents...")
+//   await registerRealAgents(ans);
+//   let query = "Generate and summarize code snippets using GPT-4.";
+//   console.log("Orchestrator Discovery Evaluation:");
+//   const result = await ans.discoverAgentsOrchestrator(query);
+//   console.log(`Best agent for query "${query}": ${result}`);
+//   process.exit(0);
+// }
+
+// test().catch((err) => {
+//   console.error("Error during benchmarking:", err);
+// });
 
